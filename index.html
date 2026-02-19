@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TLI Prospect Finder</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #060e1a; --bg2: #0c1929; --bg3: #0f2040;
+    --border: #1e3a5f; --text: #cbd5e1; --muted: #475569;
+    --dim: #334155; --white: #f1f5f9; --amber: #f59e0b;
+    --green: #059669; --blue: #3b82f6;
+  }
+  body { background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text); min-height: 100vh; }
+
+  header {
+    background: rgba(6,14,26,0.92); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--bg3); height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px; position: sticky; top: 0; z-index: 50;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-badge {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, #f59e0b, #3b5fe8);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 11px; color: #fff;
+  }
+  .logo-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--white); line-height: 1.2; }
+  .logo-sub  { font-size: 11px; color: var(--dim); }
+
+  main { max-width: 860px; margin: 0 auto; padding: 28px 20px; }
+
+  .panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; margin-bottom: 20px; }
+  .panel-label { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 16px; }
+
+  .step-row { display: flex; align-items: flex-start; gap: 16px; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--amber), #d97706);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; color: #fff;
+  }
+  .step-num.done { background: linear-gradient(135deg, var(--green), #047857); }
+  .step-body { flex: 1; }
+
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 14px; }
+  label.field-label {
+    display: block; font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.09em;
+    font-family: 'Syne', sans-serif; font-weight: 600; margin-bottom: 7px;
+  }
+  select, input[type="text"] {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; color: var(--white); font-size: 13px;
+    font-family: 'DM Sans', sans-serif; appearance: none; outline: none; transition: border-color 0.15s;
+  }
+  select:focus, input[type="text"]:focus { border-color: var(--blue); }
+  input[type="text"]::placeholder { color: var(--dim); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 8px; border: none;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
+    cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-amber { background: linear-gradient(135deg, var(--amber), #d97706); color: #fff; }
+  .btn-green { background: linear-gradient(135deg, var(--green), #047857); color: #fff; }
+  .btn-blue  { background: linear-gradient(135deg, var(--blue), #1d4ed8); color: #fff; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .btn-ghost:hover { color: var(--white); border-color: #2d5a8f; }
+
+  /* Prompt box */
+  .prompt-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; font-family: 'DM Sans', sans-serif; font-size: 12px;
+    color: #94a3b8; line-height: 1.7; white-space: pre-wrap;
+    max-height: 200px; overflow-y: auto; margin: 14px 0; user-select: all;
+  }
+  .copy-notice { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); font-weight: 600; opacity: 0; transition: opacity 0.3s; }
+  .copy-notice.show { opacity: 1; }
+
+  /* Paste area */
+  textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; color: var(--white);
+    font-family: 'DM Sans', sans-serif; font-size: 12px; line-height: 1.6;
+    resize: vertical; min-height: 130px; outline: none; transition: border-color 0.15s;
+  }
+  textarea:focus { border-color: var(--blue); }
+  textarea::placeholder { color: var(--dim); }
+
+  /* Cards */
+  .cards { display: flex; flex-direction: column; gap: 10px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-left: 3px solid var(--amber); border-radius: 10px;
+    padding: 16px 20px; cursor: pointer; opacity: 0;
+    animation: fadeUp 0.35s ease forwards;
+  }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .card-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: var(--white); }
+  .card-meta { margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .card-loc  { font-size: 12px; color: var(--muted); }
+  .card-ind  { font-size: 12px; color: var(--dim); }
+  .card-spend { font-family: monospace; font-size: 13px; color: #34d399; font-weight: 600; text-align: right; flex-shrink: 0; }
+  .card-spend-lbl { font-size: 11px; color: var(--muted); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: monospace; letter-spacing: 0.04em; }
+  .badge-ltl  { background: #3b82f622; color: #60a5fa; border: 1px solid #3b82f644; }
+  .badge-ftl  { background: #10b98122; color: #34d399; border: 1px solid #10b98144; }
+  .badge-both { background: #8b5cf622; color: #a78bfa; border: 1px solid #8b5cf644; }
+  .badge-def  { background: #64748b22; color: #94a3b8; border: 1px solid #64748b44; }
+
+  .card-bio { margin-top: 10px; font-size: 12px; color: #94a3b8; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-bio.open { display: block; }
+  .card-detail { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 12px; }
+  .card-detail.open { display: flex; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  .field-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+  .field-val { font-size: 12px; color: #cbd5e1; }
+  .field-val a { color: #60a5fa; text-decoration: none; }
+  .contact-block { background: var(--bg); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+  .contact-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, #1d4ed8, #7c3aed); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #fff; }
+  .contact-name  { font-size: 13px; font-weight: 600; color: var(--white); }
+  .contact-title { font-size: 11px; color: var(--muted); }
+  .contact-li    { font-size: 11px; color: #60a5fa; text-decoration: none; display: block; margin-top: 2px; }
+  .why-box { background: #f59e0b0d; border: 1px solid #f59e0b33; border-radius: 8px; padding: 8px 12px; font-size: 11px; color: #94a3b8; line-height: 1.6; }
+  .why-label { color: #fbbf24; font-weight: 700; }
+  .card-toggle { margin-top: 8px; font-size: 11px; color: var(--dim); }
+
+  .results-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .results-count { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; color: var(--white); }
+  .results-meta  { font-size: 12px; color: var(--muted); margin-left: 10px; }
+
+  .export-bar { display: flex; align-items: center; justify-content: space-between; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 24px; margin-top: 18px; }
+  .export-bar-title { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--white); font-size: 14px; }
+  .export-bar-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .error-box { background: #1a0a0a; border: 1px solid #7f1d1d; border-radius: 10px; padding: 12px 16px; color: #fca5a5; font-size: 13px; margin-bottom: 18px; }
+
+  .empty { text-align: center; padding: 80px 0; }
+  .empty-icon  { font-size: 52px; margin-bottom: 16px; }
+  .empty-title { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--border); font-size: 22px; margin-bottom: 10px; }
+  .empty-sub   { color: var(--dim); font-size: 13px; line-height: 1.8; max-width: 400px; margin: 0 auto; }
+
+  .instr { background: #0a1628; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #94a3b8; line-height: 1.7; margin-top: 14px; }
+  .instr strong { color: var(--white); }
+  .instr ol { padding-left: 18px; margin-top: 6px; }
+  .instr ol li { margin-bottom: 4px; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    .grid-3 { grid-template-columns: 1fr; }
+    .export-bar { flex-direction: column; gap: 14px; align-items: flex-start; }
+    header { padding: 0 16px; }
+    main { padding: 20px 14px; }
+    .panel { padding: 18px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-badge">TLI</div>
+    <div>
+      <div class="logo-name">Prospect Finder</div>
+      <div class="logo-sub">Manufacturing &amp; Distribution Leads</div>
+    </div>
+  </div>
+  <button class="btn btn-green" id="exportBtn" style="display:none" onclick="exportExcel()">↓ Export to Excel</button>
+</header>
+
+<main>
+
+  <!-- STEP 1 -->
+  <div class="panel">
+    <div class="step-row">
+      <div class="step-num" id="step1num">1</div>
+      <div class="step-body">
+        <div class="panel-label">Choose your territory</div>
+        <div class="grid-3">
+          <div>
+            <label class="field-label">State</label>
+            <select id="stateSelect" onchange="onStateChange()">
+              <option value="">Select state…</option>
+              <option value="AL">AL — Alabama</option><option value="AK">AK — Alaska</option>
+              <option value="AZ">AZ — Arizona</option><option value="AR">AR — Arkansas</option>
+              <option value="CA">CA — California</option><option value="CO">CO — Colorado</option>
+              <option value="CT">CT — Connecticut</option><option value="DE">DE — Delaware</option>
+              <option value="FL">FL — Florida</option><option value="GA">GA — Georgia</option>
+              <option value="HI">HI — Hawaii</option><option value="ID">ID — Idaho</option>
+              <option value="IL">IL — Illinois</option><option value="IN">IN — Indiana</option>
+              <option value="IA">IA — Iowa</option><option value="KS">KS — Kansas</option>
+              <option value="KY">KY — Kentucky</option><option value="LA">LA — Louisiana</option>
+              <option value="ME">ME — Maine</option><option value="MD">MD — Maryland</option>
+              <option value="MA">MA — Massachusetts</option><option value="MI">MI — Michigan</option>
+              <option value="MN">MN — Minnesota</option><option value="MS">MS — Mississippi</option>
+              <option value="MO">MO — Missouri</option><option value="MT">MT — Montana</option>
+              <option value="NE">NE — Nebraska</option><option value="NV">NV — Nevada</option>
+              <option value="NH">NH — New Hampshire</option><option value="NJ">NJ — New Jersey</option>
+              <option value="NM">NM — New Mexico</option><option value="NY">NY — New York</option>
+              <option value="NC">NC — North Carolina</option><option value="ND">ND — North Dakota</option>
+              <option value="OH">OH — Ohio</option><option value="OK">OK — Oklahoma</option>
+              <option value="OR">OR — Oregon</option><option value="PA">PA — Pennsylvania</option>
+              <option value="RI">RI — Rhode Island</option><option value="SC">SC — South Carolina</option>
+              <option value="SD">SD — South Dakota</option><option value="TN">TN — Tennessee</option>
+              <option value="TX">TX — Texas</option><option value="UT">UT — Utah</option>
+              <option value="VT">VT — Vermont</option><option value="VA">VA — Virginia</option>
+              <option value="WA">WA — Washington</option><option value="WV">WV — West Virginia</option>
+              <option value="WI">WI — Wisconsin</option><option value="WY">WY — Wyoming</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">ZIP Code <span style="color:var(--dim);font-size:9px;text-transform:none;letter-spacing:0">(nearby search)</span></label>
+            <input type="text" id="zipInput" placeholder="e.g. 19101" maxlength="5" oninput="onZipInput()" />
+          </div>
+          <div>
+            <label class="field-label">Industry Filter</label>
+            <select id="industrySelect">
+              <option value="">Any Industry</option>
+              <option>Food &amp; Beverage Manufacturing</option>
+              <option>Industrial / Heavy Manufacturing</option>
+              <option>Building Materials</option>
+              <option>Chemical Manufacturing</option>
+              <option>Medical Device / Pharmaceutical</option>
+              <option>Consumer Goods</option>
+              <option>Automotive Parts</option>
+              <option>Electronics Manufacturing</option>
+              <option>Agricultural Products</option>
+              <option>Plastics &amp; Rubber</option>
+              <option>Metal Fabrication</option>
+              <option>Paper &amp; Packaging</option>
+              <option>Textiles</option>
+              <option>Distribution (General)</option>
+            </select>
+          </div>
+        </div>
+        <p style="margin-top:12px;font-size:11px;color:var(--dim);">
+          Returns 5–8 real manufacturers &amp; distributors ($30M–$150M revenue). No trucking or 3PL companies.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="panel">
+    <div class="step-row">
+      <div class="step-num" id="step2num">2</div>
+      <div class="step-body">
+        <div class="panel-label" style="margin-bottom:4px">Generate prompt &amp; search ChatGPT</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+          Click Build Prompt — it copies automatically. Then open ChatGPT, paste, and wait for the response.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-amber" onclick="generatePrompt()">⚙ Build Prompt</button>
+          <button class="btn btn-blue"  id="openChatBtn" onclick="openChatGPT()" style="display:none">↗ Open ChatGPT</button>
+          <button class="btn btn-ghost" id="copyBtn"    onclick="copyPrompt()"  style="display:none">⎘ Copy Again</button>
+          <span class="copy-notice" id="copyNotice">✓ Copied to clipboard!</span>
+        </div>
+
+        <div id="promptBox" class="prompt-box" style="display:none"></div>
+
+        <div id="promptInstr" class="instr" style="display:none">
+          <strong>Next steps:</strong>
+          <ol>
+            <li>Click <strong>Open ChatGPT</strong> — a new tab opens</li>
+            <li>Paste the prompt with <strong>Ctrl+V</strong> (Windows) or <strong>Cmd+V</strong> (Mac) and press Enter</li>
+            <li>Wait ~20 seconds for ChatGPT to finish its response</li>
+            <li><strong>Select all</strong> of ChatGPT's reply (Ctrl+A in the message, or just click and drag), then <strong>Copy</strong></li>
+            <li>Come back here and paste into Step 3</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="panel">
+    <div class="step-row">
+      <div class="step-num" id="step3num">3</div>
+      <div class="step-body">
+        <div class="panel-label" style="margin-bottom:4px">Paste ChatGPT's response &amp; load</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Copy the <strong style="color:var(--white)">entire response</strong> from ChatGPT (including any code block) and paste it below.
+        </p>
+        <textarea id="pasteArea" placeholder="Paste ChatGPT's full response here, then click Load Results…"></textarea>
+        <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-amber" onclick="loadResults()">↓ Load Results</button>
+          <button class="btn btn-ghost" onclick="clearAll()">✕ Clear</button>
+          <button class="btn btn-ghost" onclick="loadDemo()" style="font-size:11px;padding:8px 14px;">🧪 Load Sample Data</button>
+        </div>
+        <div id="parseError" style="margin-top:10px;padding:10px 14px;background:#1a0a0a;border:1px solid #7f1d1d;border-radius:8px;color:#fca5a5;font-size:12px;display:none;line-height:1.6;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsSection" style="display:none">
+    <div class="results-head">
+      <div>
+        <span class="results-count" id="resultsCount">0 Prospects</span>
+        <span class="results-meta" id="resultsMeta"></span>
+      </div>
+      <button class="btn btn-ghost" onclick="clearAll()">↻ New Search</button>
+    </div>
+    <div class="cards" id="cardsContainer"></div>
+    <div class="export-bar">
+      <div>
+        <div class="export-bar-title">Ready to work these leads?</div>
+        <div class="export-bar-sub" id="exportSub"></div>
+      </div>
+      <button class="btn btn-green" onclick="exportExcel()">↓ Download Excel</button>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty" id="emptyState">
+    <div class="empty-icon">🏭</div>
+    <div class="empty-title">Find Your Next Freight Client</div>
+    <div class="empty-sub">
+      Pick a state or ZIP, build the prompt,<br>
+      paste it into ChatGPT, bring the results back here.<br><br>
+      Free. No account needed. No API key.
+    </div>
+  </div>
+
+</main>
+
+<script>
+let currentPrompt = "";
+let companies = [];
+let lastSearch = {};
+
+const STATE_NAMES = {
+  AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",
+  CO:"Colorado",CT:"Connecticut",DE:"Delaware",FL:"Florida",GA:"Georgia",
+  HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",
+  KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",
+  MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",MT:"Montana",
+  NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",
+  NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",
+  OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",
+  SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",
+  VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"
+};
+
+function onStateChange() {
+  if (document.getElementById("stateSelect").value) document.getElementById("zipInput").value = "";
+}
+function onZipInput() {
+  const v = document.getElementById("zipInput").value.replace(/\D/g,"");
+  document.getElementById("zipInput").value = v;
+  if (v) document.getElementById("stateSelect").value = "";
+}
+
+// ── Build the prompt ──────────────────────────────────────────────────────────
+// KEY FIX: No JSON template with placeholder text. Plain-English field list only.
+// This stops ChatGPT from echoing back placeholder names like "Exact Company Name".
+
+function generatePrompt() {
+  const state    = document.getElementById("stateSelect").value;
+  const zip      = document.getElementById("zipInput").value.trim();
+  const industry = document.getElementById("industrySelect").value;
+
+  if (!state && !zip) { alert("Please select a state or enter a ZIP code first."); return; }
+
+  let location = zip
+    ? `ZIP code ${zip} and within 25 miles of it`
+    : `the state of ${STATE_NAMES[state] || state}`;
+
+  const industryLine = industry
+    ? `Focus on the ${industry} sector specifically.`
+    : "Include a variety of industries — food, industrial, building materials, chemicals, plastics, etc.";
+
+  currentPrompt =
+`Search the web and find 6 real mid-sized manufacturing or distribution companies located in ${location}.
+
+${industryLine}
+
+TARGET CRITERIA:
+- Annual revenue between $30 million and $150 million
+- Must physically make or ship products (LTL or FTL freight)
+- Do NOT include: trucking companies, freight brokers, 3PLs, logistics companies, or warehousing-only businesses
+
+For each company, look up their phone number, website, and the name/title of a logistics or operations decision-maker (such as VP of Operations, Director of Supply Chain, VP of Logistics, or Director of Transportation).
+
+Respond with ONLY a JSON code block — no introduction, no explanation, no text before or after it. Use this exact structure:
+
+\`\`\`json
+{
+  "companies": [
+    {
+      "name": "the real company name",
+      "city": "city where they are headquartered",
+      "state": "${state || (zip ? "state for that zip" : "ST")}",
+      "zip": "their zip code",
+      "industry": "their specific industry",
+      "product": "what they manufacture or distribute",
+      "estimated_revenue": "your best estimate e.g. $55M-$90M",
+      "est_freight_spend": "estimated annual freight spend e.g. $1.4M-$2.7M/yr",
+      "shipping_type": "LTL or FTL or Both",
+      "bio": "Write 2-3 sentences about what this company does, how they ship, and why they would benefit from a freight broker relationship.",
+      "phone": "their main phone number, or leave blank",
+      "website": "their website URL, or leave blank",
+      "contact_name": "name of a real logistics or operations decision-maker, or leave blank",
+      "contact_title": "their job title, or leave blank",
+      "contact_linkedin": "their LinkedIn URL if found, or leave blank",
+      "why_good_prospect": "one sentence on why TLI should call this company this week"
+    }
+  ]
+}
+\`\`\`
+
+Fill in real data for each field. Do not use placeholder text.`;
+
+  lastSearch = { state, zip, industry, time: new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }) };
+
+  document.getElementById("promptBox").textContent = currentPrompt;
+  document.getElementById("promptBox").style.display = "block";
+  document.getElementById("openChatBtn").style.display = "inline-flex";
+  document.getElementById("copyBtn").style.display = "inline-flex";
+  document.getElementById("promptInstr").style.display = "block";
+  document.getElementById("step2num").className = "step-num done";
+  document.getElementById("parseError").style.display = "none";
+
+  copyPrompt();
+}
+
+function copyPrompt() {
+  if (!currentPrompt) return;
+  navigator.clipboard.writeText(currentPrompt).then(() => {
+    showCopied();
+  }).catch(() => {
+    const ta = document.createElement("textarea");
+    ta.value = currentPrompt;
+    Object.assign(ta.style, { position:"fixed", left:"-9999px", top:"-9999px" });
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    showCopied();
+  });
+}
+function showCopied() {
+  const n = document.getElementById("copyNotice");
+  n.classList.add("show");
+  setTimeout(() => n.classList.remove("show"), 2200);
+}
+function openChatGPT() {
+  copyPrompt();
+  window.open("https://chatgpt.com/", "_blank");
+}
+
+// ── Parse ChatGPT response ────────────────────────────────────────────────────
+function loadResults() {
+  const raw = document.getElementById("pasteArea").value.trim();
+  const errEl = document.getElementById("parseError");
+  errEl.style.display = "none";
+
+  if (!raw) { showError("Nothing pasted yet. Copy ChatGPT's full response and paste it above."); return; }
+
+  // Strategy 1: look for a ```json ... ``` block
+  let jsonStr = "";
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) {
+    jsonStr = fenceMatch[1].trim();
+  }
+
+  // Strategy 2: find first { to last }
+  if (!jsonStr) {
+    const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
+    if (s !== -1 && e !== -1) jsonStr = raw.slice(s, e + 1);
+  }
+
+  if (!jsonStr) {
+    showError(
+      "Couldn't find the company data in what you pasted.\n\n" +
+      "Make sure you copied ChatGPT's entire response — it should contain a code block with company information. " +
+      "If ChatGPT only gave a text response without a code block, scroll down in ChatGPT and click the regenerate button, " +
+      "or click Build Prompt again and try a fresh search."
+    );
+    return;
+  }
+
+  let parsed;
+  try { parsed = JSON.parse(jsonStr); }
+  catch (e) {
+    showError(
+      "The data came back in an unexpected format. Try these steps:\n" +
+      "1. Go back to ChatGPT\n" +
+      "2. Type: 'Please reformat your previous answer as a clean JSON code block only'\n" +
+      "3. Copy that new response and paste it here again."
+    );
+    return;
+  }
+
+  // Handle both {companies:[...]} and bare [...] array
+  let list = parsed.companies || parsed;
+  if (!Array.isArray(list)) {
+    // Maybe it's the first key's value
+    const keys = Object.keys(parsed);
+    if (keys.length && Array.isArray(parsed[keys[0]])) list = parsed[keys[0]];
+  }
+
+  if (!Array.isArray(list) || list.length === 0) {
+    showError("Found JSON but no companies in it. Try generating a new prompt and searching again.");
+    return;
+  }
+
+  // Filter out any placeholder/template rows (where name looks like the field description)
+  list = list.filter(c => {
+    const n = (c.name || "").toLowerCase();
+    return n && n !== "the real company name" && n !== "exact company name" && n !== "company name" && n.length > 2;
+  });
+
+  if (list.length === 0) {
+    showError(
+      "ChatGPT returned placeholder text instead of real companies. This happens when it copies the template.\n\n" +
+      "Go back to ChatGPT and type:\n" +
+      "'Search the web and give me REAL company names — not placeholder examples. Fill in actual businesses.'\n\n" +
+      "Then copy that response and paste it here."
+    );
+    return;
+  }
+
+  companies = list;
+  renderCompanies();
+}
+
+function showError(msg) {
+  const el = document.getElementById("parseError");
+  el.style.display = "block";
+  el.style.whiteSpace = "pre-line";
+  el.textContent = "⚠ " + msg;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderCompanies() {
+  const container = document.getElementById("cardsContainer");
+  container.innerHTML = "";
+
+  companies.forEach((co, idx) => {
+    const badge = getBadge(co.shipping_type);
+    const initial = (co.name || "?")[0].toUpperCase();
+    const rawSite = (co.website || "").trim();
+    const websiteHref = rawSite ? (rawSite.startsWith("http") ? rawSite : "https://" + rawSite) : null;
+    const websiteDisplay = rawSite.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "").slice(0, 38);
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.animationDelay = (idx * 55) + "ms";
+    card.onclick = () => toggleCard(card);
+
+    card.innerHTML = `
+      <div class="card-top">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span class="card-name">${esc(co.name)}</span>
+            ${badge}
+          </div>
+          <div class="card-meta">
+            <span class="card-loc">📍 ${esc([co.city, co.state, co.zip].filter(Boolean).join(", "))}</span>
+            ${co.industry ? `<span class="card-ind">· ${esc(co.industry)}</span>` : ""}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="card-spend">${esc(co.est_freight_spend || "")}</div>
+          <div class="card-spend-lbl">est. freight/yr</div>
+        </div>
+      </div>
+
+      <p class="card-bio">${esc(co.bio || "")}</p>
+
+      <div class="card-detail">
+        <div class="detail-grid">
+          ${co.product ? `<div><div class="field-lbl">Product</div><div class="field-val">${esc(co.product)}</div></div>` : ""}
+          ${co.estimated_revenue ? `<div><div class="field-lbl">Revenue Est.</div><div class="field-val">${esc(co.estimated_revenue)}</div></div>` : ""}
+          ${co.phone ? `<div><div class="field-lbl">Phone</div><div class="field-val">${esc(co.phone)}</div></div>` : ""}
+          ${websiteHref ? `<div><div class="field-lbl">Website</div><div class="field-val"><a href="${websiteHref}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(websiteDisplay)}</a></div></div>` : ""}
+        </div>
+
+        ${(co.contact_name || co.contact_title) ? `
+        <div class="contact-block">
+          <div class="contact-avatar">${esc(initial)}</div>
+          <div>
+            <div class="contact-name">${esc(co.contact_name || "Contact Found")}</div>
+            <div class="contact-title">${esc(co.contact_title || "")}</div>
+            ${co.contact_linkedin ? `<a class="contact-li" href="${esc(co.contact_linkedin)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">LinkedIn →</a>` : ""}
+          </div>
+        </div>` : ""}
+
+        ${co.why_good_prospect ? `
+        <div class="why-box">
+          <span class="why-label">⚡ WHY CALL: </span>${esc(co.why_good_prospect)}
+        </div>` : ""}
+      </div>
+      <div class="card-toggle">▼ expand details</div>
+    `;
+    container.appendChild(card);
+  });
+
+  const label = lastSearch.zip
+    ? `ZIP ${lastSearch.zip}`
+    : (STATE_NAMES[lastSearch.state] || lastSearch.state || "");
+  const ind = lastSearch.industry ? ` · ${lastSearch.industry}` : "";
+
+  document.getElementById("resultsCount").textContent = `${companies.length} Prospect${companies.length !== 1 ? "s" : ""} Found`;
+  document.getElementById("resultsMeta").textContent = `${label}${ind}${lastSearch.time ? " · " + lastSearch.time : ""}`;
+  document.getElementById("exportSub").textContent = `Export all ${companies.length} companies with contacts and bios`;
+  document.getElementById("resultsSection").style.display = "block";
+  document.getElementById("emptyState").style.display = "none";
+  document.getElementById("exportBtn").style.display = "inline-flex";
+  document.getElementById("step3num").className = "step-num done";
+  document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function toggleCard(card) {
+  const bio    = card.querySelector(".card-bio");
+  const detail = card.querySelector(".card-detail");
+  const toggle = card.querySelector(".card-toggle");
+  const open   = detail.classList.contains("open");
+  bio.classList.toggle("open", !open);
+  detail.classList.toggle("open", !open);
+  toggle.textContent = open ? "▼ expand details" : "▲ collapse";
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getBadge(type) {
+  const t = (type || "").trim();
+  if (/ltl/i.test(t) && /ftl/i.test(t)) return `<span class="badge badge-both">Both</span>`;
+  if (/both/i.test(t))  return `<span class="badge badge-both">Both</span>`;
+  if (/ltl/i.test(t))   return `<span class="badge badge-ltl">LTL</span>`;
+  if (/ftl/i.test(t))   return `<span class="badge badge-ftl">FTL</span>`;
+  return t ? `<span class="badge badge-def">${esc(t)}</span>` : "";
+}
+function esc(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function exportExcel() {
+  if (!companies.length) return;
+  const rows = companies.map(c => ({
+    "Company Name":        c.name || "",
+    "City":                c.city || "",
+    "State":               c.state || "",
+    "ZIP":                 c.zip || "",
+    "Industry":            c.industry || "",
+    "Product / Commodity": c.product || "",
+    "Est. Revenue":        c.estimated_revenue || "",
+    "Est. Freight Spend":  c.est_freight_spend || "",
+    "Shipping Type":       c.shipping_type || "",
+    "Company Bio":         c.bio || "",
+    "Why Good Prospect":   c.why_good_prospect || "",
+    "Phone":               c.phone || "",
+    "Website":             c.website || "",
+    "Contact Name":        c.contact_name || "",
+    "Contact Title":       c.contact_title || "",
+    "Contact LinkedIn":    c.contact_linkedin || "",
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!cols"] = [
+    {wch:34},{wch:18},{wch:6},{wch:10},{wch:26},
+    {wch:32},{wch:16},{wch:20},{wch:14},{wch:62},
+    {wch:50},{wch:16},{wch:32},{wch:26},{wch:30},{wch:42},
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, "Leads");
+  const label = lastSearch.zip ? `ZIP_${lastSearch.zip}` : (lastSearch.state || "Leads");
+  XLSX.writeFile(wb, `TLI_Leads_${label}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── Clear ─────────────────────────────────────────────────────────────────────
+function clearAll() {
+  document.getElementById("pasteArea").value = "";
+  document.getElementById("parseError").style.display = "none";
+  document.getElementById("resultsSection").style.display = "none";
+  document.getElementById("emptyState").style.display = "block";
+  document.getElementById("exportBtn").style.display = "none";
+  companies = []; lastSearch = {};
+}
+
+// ── Demo / sample data (lets you verify the UI without ChatGPT) ───────────────
+function loadDemo() {
+  lastSearch = { state:"PA", zip:"", industry:"", time:"Demo" };
+  companies = [
+    { name:"Keystone Metal Fabricators", city:"Allentown", state:"PA", zip:"18101", industry:"Metal Fabrication",
+      product:"Structural steel components and custom metal parts for industrial customers",
+      estimated_revenue:"$62M–$85M", est_freight_spend:"$1.6M–$2.6M/yr", shipping_type:"FTL",
+      bio:"Keystone Metal Fabricators produces custom structural steel components and ships FTL loads 3–5 times per week to construction and manufacturing customers across the Mid-Atlantic. Their high shipment frequency and lack of a dedicated logistics partner makes them a strong candidate for TLI's managed freight program.",
+      phone:"(610) 555-0182", website:"keystonemetal.com",
+      contact_name:"Robert Garza", contact_title:"VP Operations", contact_linkedin:"",
+      why_good_prospect:"High FTL volume with no broker relationship and rates likely benchmarked only against one carrier." },
+    { name:"Penn Valley Food Distributors", city:"Philadelphia", state:"PA", zip:"19103", industry:"Food & Beverage Distribution",
+      product:"Dry goods, frozen foods, and specialty beverages for restaurant chains and retailers",
+      estimated_revenue:"$90M–$130M", est_freight_spend:"$2.3M–$3.9M/yr", shipping_type:"Both",
+      bio:"Penn Valley distributes to over 1,200 restaurant and retail accounts across PA, NJ, and DE using a combination of LTL for smaller stops and FTL for regional DC replenishment. Their mixed freight model and seasonal volume spikes create a clear opportunity for TLI to reduce cost and improve carrier reliability.",
+      phone:"(215) 555-0344", website:"pennvalleyfood.com",
+      contact_name:"Maria Sulkowski", contact_title:"Director of Supply Chain", contact_linkedin:"",
+      why_good_prospect:"Multi-mode shipper with 1,200+ accounts and documented carrier reliability issues in Q3." },
+    { name:"Lehigh Valley Plastics", city:"Bethlehem", state:"PA", zip:"18015", industry:"Plastics Manufacturing",
+      product:"Injection-molded plastic components for automotive and medical device OEMs",
+      estimated_revenue:"$38M–$55M", est_freight_spend:"$950K–$1.7M/yr", shipping_type:"LTL",
+      bio:"Lehigh Valley Plastics ships LTL daily to automotive plants in Ohio, Michigan, and Indiana. As a just-in-time supplier, they are extremely sensitive to transit reliability. Their current carrier mix leaves gaps in coverage that are costing them chargebacks from OEM customers.",
+      phone:"(610) 555-0917", website:"lvplastics.com",
+      contact_name:"David Cho", contact_title:"Logistics Manager", contact_linkedin:"",
+      why_good_prospect:"JIT manufacturer paying carrier chargebacks — TLI's reliability guarantee is a direct cost savings story." },
+  ];
+  document.getElementById("parseError").style.display = "none";
+  renderCompanies();
+}
+</script>
+</body>
+</html>

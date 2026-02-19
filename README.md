@@ -1,5 +1,5 @@
 PROSPECT FINDER
-Manufacturing & Distribution Lead Intelligence Tool
+Manufacturing & Distribution Lead Intelligence Tool: https://magicklibrary.github.io/prospect-finder/
 User Guide & Setup Instructions
 
 What Is This Tool?
